@@ -1,0 +1,15 @@
+plugins {
+    id 'application'
+}
+
+dependencies {
+    implementation project(':core')
+    implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+}
+
+application {
+    mainClass = 'com.codeheadsystems.mazer.desktop.DesktopLauncher'
+}
+
+// Use 'gradle :desktop:run' to launch the game

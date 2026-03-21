@@ -1,0 +1,3 @@
+include 'core', 'desktop', 'android'
+
+rootProject.name = 'mazer'
