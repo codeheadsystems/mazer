@@ -35,7 +35,7 @@ public class MinimapRenderer implements Disposable {
         // Camera shows the entire maze
         float mazeWorldWidth = maze.getWidth() * maze.getCellSize();
         float mazeWorldHeight = maze.getHeight() * maze.getCellSize();
-        minimapCamera.setToOrtho(false, mazeWorldWidth, mazeWorldHeight);
+        minimapCamera.setToOrtho(true, mazeWorldWidth, mazeWorldHeight);
         minimapCamera.position.set(mazeWorldWidth / 2f, mazeWorldHeight / 2f, 0);
         minimapCamera.update();
     }
