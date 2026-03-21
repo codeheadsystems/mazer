@@ -12,9 +12,14 @@ import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.TextField;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.codeheadsystems.mazer.MazerGame;
+import com.codeheadsystems.mazer.net.NetworkManager;
 import com.codeheadsystems.mazer.render.PlayerModelFactory;
 
 /**
@@ -75,15 +80,50 @@ public class MenuScreen extends ScreenAdapter {
         });
         root.add(soloButton).width(250).height(50).padBottom(15).row();
 
-        // Host button (placeholder)
+        // Player name field
+        Label nameLabel = new Label("Name:", skin);
+        root.add(nameLabel).padBottom(5).row();
+
+        TextField nameField = new TextField("Player", skin);
+        root.add(nameField).width(200).padBottom(20).row();
+
+        // Host button
         TextButton hostButton = new TextButton("HOST GAME", skin);
-        hostButton.setDisabled(true);
+        hostButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                int[] size = parseMazeSize(sizeSelect.getSelected());
+                NetworkManager net = new NetworkManager();
+                String ip = net.startHost(nameField.getText(), shapeSelect.getSelectedIndex());
+                if (ip != null) {
+                    game.setScreen(new LobbyScreen(game, net, size[0], size[1]));
+                }
+            }
+        });
         root.add(hostButton).width(250).height(50).padBottom(15).row();
 
-        // Join button (placeholder)
-        TextButton joinButton = new TextButton("JOIN GAME", skin);
-        joinButton.setDisabled(true);
-        root.add(joinButton).width(250).height(50).row();
+        // Join section: IP field + button
+        Table joinTable = new Table();
+        TextField ipField = new TextField("192.168.1.", skin);
+        joinTable.add(ipField).width(180).padRight(10);
+
+        TextButton joinButton = new TextButton("JOIN", skin);
+        joinButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                int[] size = parseMazeSize(sizeSelect.getSelected());
+                NetworkManager net = new NetworkManager();
+                net.setOnJoinResponse(resp -> {
+                    if (resp.accepted) {
+                        game.setScreen(new LobbyScreen(game, net, size[0], size[1]));
+                    }
+                });
+                net.connectToHost(ipField.getText(),
+                        nameField.getText(), shapeSelect.getSelectedIndex());
+            }
+        });
+        joinTable.add(joinButton).width(80).height(50);
+        root.add(joinTable).padBottom(15).row();
     }
 
     private int[] parseMazeSize(String sizeStr) {
@@ -208,6 +248,17 @@ public class MenuScreen extends ScreenAdapter {
         selectStyle.scrollStyle = scrollStyle;
         selectStyle.listStyle = listStyle;
         s.add("default", selectStyle);
+
+        // TextField style
+        TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle();
+        textFieldStyle.font = font;
+        textFieldStyle.fontColor = Color.GREEN;
+        textFieldStyle.background = selectBg;
+        textFieldStyle.cursor = new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(
+                new com.badlogic.gdx.graphics.g2d.TextureRegion(
+                        s.get("button-down", com.badlogic.gdx.graphics.Texture.class)));
+        textFieldStyle.selection = selectOver;
+        s.add("default", textFieldStyle);
 
         return s;
     }
