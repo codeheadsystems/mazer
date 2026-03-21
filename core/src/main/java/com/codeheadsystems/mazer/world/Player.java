@@ -5,6 +5,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.codeheadsystems.mazer.input.InputState;
 import com.codeheadsystems.mazer.maze.MazeCell;
 import com.codeheadsystems.mazer.maze.MazeGrid;
+import com.codeheadsystems.mazer.render.PlayerModelFactory;
 
 /**
  * Player entity with position, facing direction, and movement logic.
@@ -22,14 +23,20 @@ public class Player {
     private int score;
     private boolean alive;
     private int id;
+    private PlayerModelFactory.Shape shape;
 
-    public Player(int id, float x, float z, float angle) {
+    public Player(int id, float x, float z, float angle, PlayerModelFactory.Shape shape) {
         this.id = id;
         this.x = x;
         this.z = z;
         this.angle = angle;
+        this.shape = shape;
         this.score = 5;
         this.alive = true;
+    }
+
+    public Player(int id, float x, float z, float angle) {
+        this(id, x, z, angle, PlayerModelFactory.Shape.CUBE);
     }
 
     /**
@@ -113,6 +120,7 @@ public class Player {
     public int getScore() { return score; }
     public boolean isAlive() { return alive; }
     public int getId() { return id; }
+    public PlayerModelFactory.Shape getShape() { return shape; }
 
     public void setPosition(float x, float z) {
         this.x = x;
