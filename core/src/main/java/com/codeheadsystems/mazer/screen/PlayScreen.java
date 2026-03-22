@@ -4,7 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.math.Vector2;
-import com.codeheadsystems.mazer.input.DesktopInputProcessor;
+import com.codeheadsystems.mazer.input.InputHelper;
 import com.codeheadsystems.mazer.input.InputState;
 import com.codeheadsystems.mazer.maze.MazeGenerator;
 import com.codeheadsystems.mazer.maze.MazeGrid;
@@ -38,7 +38,7 @@ public class PlayScreen extends ScreenAdapter {
     private HudRenderer hudRenderer;
     private Player localPlayer;
     private InputState inputState;
-    private DesktopInputProcessor inputProcessor;
+    private Runnable inputUpdater;
 
     public PlayScreen(int mazeWidth, int mazeHeight, long mazeSeed,
                       boolean soloMode, PlayerModelFactory.Shape playerShape) {
@@ -73,8 +73,7 @@ public class PlayScreen extends ScreenAdapter {
         }
 
         inputState = new InputState();
-        inputProcessor = new DesktopInputProcessor(inputState);
-        Gdx.input.setInputProcessor(inputProcessor);
+        inputUpdater = InputHelper.setupInput(inputState);
     }
 
     @Override
@@ -83,7 +82,7 @@ public class PlayScreen extends ScreenAdapter {
         delta = Math.min(delta, 1f / 15f);
 
         // Update input
-        inputProcessor.update();
+        inputUpdater.run();
 
         // Update world simulation (player movement, bullets, collisions)
         gameWorld.update(delta, localPlayer, inputState);

@@ -5,7 +5,7 @@ import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.math.MathUtils;
 import com.codeheadsystems.mazer.MazerGame;
-import com.codeheadsystems.mazer.input.DesktopInputProcessor;
+import com.codeheadsystems.mazer.input.InputHelper;
 import com.codeheadsystems.mazer.input.InputState;
 import com.codeheadsystems.mazer.maze.MazeGenerator;
 import com.codeheadsystems.mazer.maze.MazeGrid;
@@ -45,7 +45,7 @@ public class NetworkedPlayScreen extends ScreenAdapter {
     private HudRenderer hudRenderer;
     private Player localPlayer;
     private InputState inputState;
-    private DesktopInputProcessor inputProcessor;
+    private Runnable inputUpdater;
 
     // Client-side snapshot state
     private final List<Bullet> clientBullets = new ArrayList<>();
@@ -85,8 +85,7 @@ public class NetworkedPlayScreen extends ScreenAdapter {
         }
 
         inputState = new InputState();
-        inputProcessor = new DesktopInputProcessor(inputState);
-        Gdx.input.setInputProcessor(inputProcessor);
+        inputUpdater = InputHelper.setupInput(inputState);
 
         // Register network callbacks
         networkManager.setOnGameSnapshot(this::onGameSnapshot);
@@ -100,7 +99,7 @@ public class NetworkedPlayScreen extends ScreenAdapter {
         delta = Math.min(delta, 1f / 15f);
 
         // Update input
-        inputProcessor.update();
+        inputUpdater.run();
 
         // Send input to server
         networkManager.sendPlayerInput(inputState);
