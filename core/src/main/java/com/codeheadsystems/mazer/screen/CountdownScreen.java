@@ -58,11 +58,14 @@ public class CountdownScreen extends ScreenAdapter {
 
         // Position camera at local player's spawn
         int localId = networkManager.getLocalPlayerId();
-        if (localId >= 0 && localId < startMsg.spawnX.length) {
-            mazeRenderer.updateCamera(
-                    startMsg.spawnX[localId],
-                    startMsg.spawnZ[localId],
-                    startMsg.spawnAngle[localId]);
+        for (int i = 0; i < startMsg.playerIds.length; i++) {
+            if (startMsg.playerIds[i] == localId) {
+                mazeRenderer.updateCamera(
+                        startMsg.spawnX[i],
+                        startMsg.spawnZ[i],
+                        startMsg.spawnAngle[i]);
+                break;
+            }
         }
     }
 

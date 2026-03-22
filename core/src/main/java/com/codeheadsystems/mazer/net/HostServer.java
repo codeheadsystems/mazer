@@ -124,8 +124,12 @@ public class HostServer {
         maze = MazeGenerator.generate(mazeWidth, mazeHeight, CELL_SIZE, seed);
 
         List<Protocol.PlayerInfo> players = new ArrayList<>(playerInfoMap.values());
+        // Sort by ID for deterministic ordering
+        players.sort((a, b) -> Integer.compare(a.id, b.id));
         Random random = new Random(seed + 42);
 
+        int[] playerIds = new int[players.size()];
+        int[] shapeIndices = new int[players.size()];
         float[] spawnX = new float[players.size()];
         float[] spawnZ = new float[players.size()];
         float[] spawnAngle = new float[players.size()];
@@ -149,6 +153,8 @@ public class HostServer {
             usedCells.add(new int[]{cx, cy});
 
             Vector2 pos = maze.cellToWorld(cx, cy);
+            playerIds[i] = players.get(i).id;
+            shapeIndices[i] = players.get(i).shapeIndex;
             spawnX[i] = pos.x;
             spawnZ[i] = pos.y;
             spawnAngle[i] = random.nextFloat() * MathUtils.PI2;
@@ -158,6 +164,8 @@ public class HostServer {
         msg.mazeSeed = seed;
         msg.mazeWidth = mazeWidth;
         msg.mazeHeight = mazeHeight;
+        msg.playerIds = playerIds;
+        msg.shapeIndices = shapeIndices;
         msg.spawnX = spawnX;
         msg.spawnZ = spawnZ;
         msg.spawnAngle = spawnAngle;

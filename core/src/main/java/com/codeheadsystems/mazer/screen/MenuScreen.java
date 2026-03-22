@@ -30,6 +30,8 @@ public class MenuScreen extends ScreenAdapter {
     private final MazerGame game;
     private Stage stage;
     private Skin skin;
+    private TextField nameField;
+    private TextField ipField;
 
     public MenuScreen(MazerGame game) {
         this.game = game;
@@ -64,13 +66,25 @@ public class MenuScreen extends ScreenAdapter {
 
         SelectBox<String> shapeSelect = new SelectBox<>(skin);
         shapeSelect.setItems("Cube", "Sphere", "Eyeball");
-        root.add(shapeSelect).width(200).padBottom(30).row();
+        root.add(shapeSelect).width(200).padBottom(15).row();
+
+        // Name field (declared early so all button handlers can access it)
+        Label nameLabel = new Label("Name:", skin);
+        root.add(nameLabel).padBottom(5).row();
+
+        nameField = new TextField(game.getLastPlayerName(), skin);
+        root.add(nameField).width(200).padBottom(15).row();
+
+        // IP field (declared early so all button handlers can access it)
+        ipField = new TextField(game.getLastHostIp(), skin);
 
         // Solo button
         TextButton soloButton = new TextButton("SOLO PLAY", skin);
         soloButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                game.setLastPlayerName(nameField.getText());
+                game.setLastHostIp(ipField.getText());
                 int[] size = parseMazeSize(sizeSelect.getSelected());
                 PlayerModelFactory.Shape shape = PlayerModelFactory.Shape.fromIndex(
                         shapeSelect.getSelectedIndex());
@@ -80,18 +94,13 @@ public class MenuScreen extends ScreenAdapter {
         });
         root.add(soloButton).width(250).height(50).padBottom(15).row();
 
-        // Player name field
-        Label nameLabel = new Label("Name:", skin);
-        root.add(nameLabel).padBottom(5).row();
-
-        TextField nameField = new TextField("Player", skin);
-        root.add(nameField).width(200).padBottom(20).row();
-
         // Host button
         TextButton hostButton = new TextButton("HOST GAME", skin);
         hostButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                game.setLastPlayerName(nameField.getText());
+                game.setLastHostIp(ipField.getText());
                 int[] size = parseMazeSize(sizeSelect.getSelected());
                 NetworkManager net = new NetworkManager();
                 String ip = net.startHost(nameField.getText(), shapeSelect.getSelectedIndex());
@@ -104,13 +113,14 @@ public class MenuScreen extends ScreenAdapter {
 
         // Join section: IP field + button
         Table joinTable = new Table();
-        TextField ipField = new TextField("192.168.1.", skin);
         joinTable.add(ipField).width(180).padRight(10);
 
         TextButton joinButton = new TextButton("JOIN", skin);
         joinButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                game.setLastPlayerName(nameField.getText());
+                game.setLastHostIp(ipField.getText());
                 int[] size = parseMazeSize(sizeSelect.getSelected());
                 NetworkManager net = new NetworkManager();
                 net.setOnJoinResponse(resp -> {
@@ -161,6 +171,18 @@ public class MenuScreen extends ScreenAdapter {
     private int[] parseMazeSize(String sizeStr) {
         String[] parts = sizeStr.split("x");
         return new int[]{Integer.parseInt(parts[0]), Integer.parseInt(parts[1])};
+    }
+
+    @Override
+    public void hide() {
+        // Save field values when leaving this screen — ensures Android soft keyboard
+        // text is captured even if the keyboard wasn't dismissed before tapping a button
+        if (nameField != null) {
+            game.setLastPlayerName(nameField.getText());
+        }
+        if (ipField != null) {
+            game.setLastHostIp(ipField.getText());
+        }
     }
 
     @Override

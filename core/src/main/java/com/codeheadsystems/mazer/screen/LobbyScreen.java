@@ -66,48 +66,38 @@ public class LobbyScreen extends ScreenAdapter {
         statusLabel = new Label("Waiting for players...", skin);
         root.add(statusLabel).padBottom(20).colspan(2).row();
 
-        // Two-column layout: player list on left, QR code on right (host only)
+        // Single-column layout (works for portrait and landscape)
         Table contentTable = new Table();
 
-        // Player list
-        playerListTable = new Table();
-        playerListTable.top().left();
-        contentTable.add(playerListTable).width(400).top().padRight(30);
-
-        // QR code (host only)
+        // QR code / IP (host only, show first so joiners see it)
         if (networkManager.isHost()) {
             String connectString = networkManager.getConnectString();
             if (connectString != null) {
-                Table qrTable = new Table();
-
-                // Extract just the IP from the connect string
                 String ip = connectString.replace("mazer://", "").split(":")[0];
 
                 Label ipHeaderLabel = new Label("Join IP:", skin);
-                qrTable.add(ipHeaderLabel).padBottom(5).row();
+                contentTable.add(ipHeaderLabel).padBottom(3).row();
 
                 Label ipLabel = new Label(ip, skin, "title");
-                qrTable.add(ipLabel).padBottom(15).row();
-
-                Label qrLabel = new Label("Or scan QR code:", skin);
-                qrTable.add(qrLabel).padBottom(5).row();
+                contentTable.add(ipLabel).padBottom(10).row();
 
                 qrTexture = QrCodeUtil.generateQrTexture(connectString, 200);
                 if (qrTexture != null) {
                     Image qrImage = new Image(new TextureRegionDrawable(
                             new TextureRegion(qrTexture)));
-                    qrTable.add(qrImage).size(150).padBottom(5).row();
+                    contentTable.add(qrImage).size(120).padBottom(10).row();
                 }
-
-                contentTable.add(qrTable).top();
             }
         }
 
+        // Player list
+        playerListTable = new Table();
+        playerListTable.top();
+        contentTable.add(playerListTable).fillX().padBottom(10).row();
+
         root.add(contentTable).padBottom(30).colspan(2).row();
 
-        // Buttons
-        Table buttonTable = new Table();
-
+        // Buttons (stacked vertically for portrait compatibility)
         TextButton readyButton = new TextButton("READY", skin);
         readyButton.addListener(new ClickListener() {
             @Override
@@ -115,7 +105,7 @@ public class LobbyScreen extends ScreenAdapter {
                 networkManager.toggleReady();
             }
         });
-        buttonTable.add(readyButton).width(200).height(45).padRight(15);
+        root.add(readyButton).width(250).height(45).padBottom(10).row();
 
         if (networkManager.isHost()) {
             startButton = new TextButton("START GAME", skin);
@@ -128,7 +118,7 @@ public class LobbyScreen extends ScreenAdapter {
                     }
                 }
             });
-            buttonTable.add(startButton).width(200).height(45).padRight(15);
+            root.add(startButton).width(250).height(45).padBottom(10).row();
         }
 
         TextButton backButton = new TextButton("LEAVE", skin);
@@ -139,9 +129,7 @@ public class LobbyScreen extends ScreenAdapter {
                 game.setScreen(new MenuScreen(game));
             }
         });
-        buttonTable.add(backButton).width(200).height(45);
-
-        root.add(buttonTable).colspan(2).row();
+        root.add(backButton).width(250).height(45).padBottom(10).row();
 
         // Set up network callbacks
         networkManager.setOnLobbyUpdate(this::onLobbyUpdate);

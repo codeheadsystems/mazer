@@ -24,6 +24,7 @@ public class Protocol {
         kryo.register(ReadyToggle.class);
         kryo.register(StartGame.class);
         kryo.register(float[].class);
+        kryo.register(int[].class);
         kryo.register(PlayerInput.class);
         kryo.register(GameSnapshot.class);
         kryo.register(PlayerSnapshot.class);
@@ -72,6 +73,8 @@ public class Protocol {
         public long mazeSeed;
         public int mazeWidth;
         public int mazeHeight;
+        public int[] playerIds;
+        public int[] shapeIndices;
         public float[] spawnX;
         public float[] spawnZ;
         public float[] spawnAngle;

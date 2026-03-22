@@ -32,6 +32,7 @@ public class NetworkedPlayScreen extends ScreenAdapter {
 
     private static final float CELL_SIZE = 4.0f;
     private static final float LERP_SPEED = 15f;
+    private static final float GAME_OVER_DELAY = 2.0f; // seconds to show final kill before transitioning
 
     private final MazerGame game;
     private final NetworkManager networkManager;
@@ -50,6 +51,10 @@ public class NetworkedPlayScreen extends ScreenAdapter {
     // Client-side snapshot state
     private final List<Bullet> clientBullets = new ArrayList<>();
 
+    // Game over delay
+    private int pendingWinnerId = -2; // -2 = no game over pending
+    private float gameOverTimer = 0f;
+
     public NetworkedPlayScreen(MazerGame game, NetworkManager networkManager,
                                Protocol.StartGame startMsg) {
         this.game = game;
@@ -67,14 +72,16 @@ public class NetworkedPlayScreen extends ScreenAdapter {
         bulletRenderer = new BulletRenderer();
         hudRenderer = new HudRenderer(maze);
 
-        // Create all players from the start message
+        // Create all players from the start message using actual player IDs and shapes
         int localId = networkManager.getLocalPlayerId();
-        for (int i = 0; i < startMsg.spawnX.length; i++) {
-            // Use index as player id (matches how HostServer assigns them)
-            Player p = new Player(i, startMsg.spawnX[i], startMsg.spawnZ[i],
-                    startMsg.spawnAngle[i], PlayerModelFactory.Shape.CUBE);
+        for (int i = 0; i < startMsg.playerIds.length; i++) {
+            int playerId = startMsg.playerIds[i];
+            PlayerModelFactory.Shape shape = PlayerModelFactory.Shape.fromIndex(
+                    startMsg.shapeIndices[i]);
+            Player p = new Player(playerId, startMsg.spawnX[i], startMsg.spawnZ[i],
+                    startMsg.spawnAngle[i], shape);
             gameWorld.addPlayer(p);
-            if (i == localId) {
+            if (playerId == localId) {
                 localPlayer = p;
             }
         }
@@ -143,6 +150,15 @@ public class NetworkedPlayScreen extends ScreenAdapter {
 
         // Render HUD
         hudRenderer.render(mazeRenderer, localPlayer);
+
+        // Game over delay — keep rendering for a couple seconds before transitioning
+        if (pendingWinnerId != -2) {
+            gameOverTimer += delta;
+            if (gameOverTimer >= GAME_OVER_DELAY) {
+                game.setScreen(new GameOverScreen(game, networkManager, pendingWinnerId));
+                return;
+            }
+        }
 
         // Check for leave request
         if (hudRenderer.isLeaveRequested()) {
@@ -217,7 +233,9 @@ public class NetworkedPlayScreen extends ScreenAdapter {
     }
 
     private void onGameOver(Protocol.GameOver msg) {
-        game.setScreen(new GameOverScreen(game, networkManager, msg.winnerPlayerId));
+        // Start delay so the player can see the final kill before transitioning
+        pendingWinnerId = msg.winnerPlayerId;
+        gameOverTimer = 0f;
     }
 
     private void onDisconnected() {
