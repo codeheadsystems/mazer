@@ -3,8 +3,12 @@ package com.codeheadsystems.mazer.net;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
+import com.codeheadsystems.mazer.input.InputState;
 import com.codeheadsystems.mazer.maze.MazeGenerator;
 import com.codeheadsystems.mazer.maze.MazeGrid;
+import com.codeheadsystems.mazer.render.PlayerModelFactory;
+import com.codeheadsystems.mazer.world.Bullet;
+import com.codeheadsystems.mazer.world.Player;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
@@ -15,18 +19,26 @@ import java.net.NetworkInterface;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Host-side networking. Runs a KryoNet Server, manages lobby state,
- * and coordinates game start.
+ * coordinates game start, and runs the authoritative gameplay simulation.
  */
 public class HostServer {
 
     private static final int MAX_PLAYERS = 8;
     private static final float CELL_SIZE = 4.0f;
+    private static final float TICK_RATE = 20f;
+    private static final float TICK_DELTA = 1f / TICK_RATE;
+    private static final long TICK_INTERVAL_MS = (long) (1000f / TICK_RATE);
 
     private final NetworkManager networkManager;
     private Server server;
@@ -36,6 +48,17 @@ public class HostServer {
     // Lobby state
     private final Map<Integer, Protocol.PlayerInfo> playerInfoMap = new HashMap<>();
     private final Map<Integer, Integer> connectionToPlayerId = new HashMap<>();
+
+    // Gameplay state
+    private MazeGrid maze;
+    private final Map<Integer, Player> gamePlayers = new ConcurrentHashMap<>();
+    private final List<Bullet> bullets = new ArrayList<>();
+    private final Map<Integer, Protocol.PlayerInput> bufferedInputs = new ConcurrentHashMap<>();
+    private final Map<Integer, Float> fireCooldowns = new HashMap<>();
+    private final Map<Integer, Integer> previousScores = new HashMap<>();
+    private ScheduledExecutorService tickExecutor;
+    private long tickCount = 0;
+    private boolean gameplayActive = false;
 
     public HostServer(NetworkManager networkManager) {
         this.networkManager = networkManager;
@@ -98,7 +121,7 @@ public class HostServer {
      */
     public void startGame(int mazeWidth, int mazeHeight) {
         long seed = System.currentTimeMillis();
-        MazeGrid maze = MazeGenerator.generate(mazeWidth, mazeHeight, CELL_SIZE, seed);
+        maze = MazeGenerator.generate(mazeWidth, mazeHeight, CELL_SIZE, seed);
 
         List<Protocol.PlayerInfo> players = new ArrayList<>(playerInfoMap.values());
         Random random = new Random(seed + 42);
@@ -139,13 +162,27 @@ public class HostServer {
         msg.spawnZ = spawnZ;
         msg.spawnAngle = spawnAngle;
 
+        // Initialize gameplay state before sending StartGame
+        initializeGameplay(players, spawnX, spawnZ, spawnAngle);
+
         server.sendToAllTCP(msg);
 
         // Also fire locally for the host
         networkManager.fireGameStart(msg);
+
+        // Start the simulation loop
+        startGameplayLoop();
+    }
+
+    /**
+     * Accepts input from the local host player (player ID 0) without going through the network.
+     */
+    public void handleLocalPlayerInput(Protocol.PlayerInput input) {
+        bufferedInputs.put(0, input);
     }
 
     public void stop() {
+        stopGameplayLoop();
         if (server != null) {
             server.stop();
             server.close();
@@ -156,11 +193,228 @@ public class HostServer {
         return new ArrayList<>(playerInfoMap.values());
     }
 
+    // --- Gameplay simulation ---
+
+    private void initializeGameplay(List<Protocol.PlayerInfo> players, float[] spawnX, float[] spawnZ, float[] spawnAngle) {
+        gamePlayers.clear();
+        bullets.clear();
+        bufferedInputs.clear();
+        fireCooldowns.clear();
+        previousScores.clear();
+        tickCount = 0;
+
+        for (int i = 0; i < players.size(); i++) {
+            Protocol.PlayerInfo info = players.get(i);
+            PlayerModelFactory.Shape shape = PlayerModelFactory.Shape.fromIndex(info.shapeIndex);
+            Player player = new Player(info.id, spawnX[i], spawnZ[i], spawnAngle[i], shape);
+            gamePlayers.put(info.id, player);
+            fireCooldowns.put(info.id, 0f);
+            previousScores.put(info.id, player.getScore());
+        }
+    }
+
+    private void startGameplayLoop() {
+        gameplayActive = true;
+        tickExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "host-tick");
+            t.setDaemon(true);
+            return t;
+        });
+        tickExecutor.scheduleAtFixedRate(this::tick, TICK_INTERVAL_MS, TICK_INTERVAL_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private void stopGameplayLoop() {
+        gameplayActive = false;
+        if (tickExecutor != null) {
+            tickExecutor.shutdownNow();
+            tickExecutor = null;
+        }
+    }
+
+    private void tick() {
+        if (!gameplayActive) return;
+
+        try {
+            tickCount++;
+
+            // Apply buffered inputs and update each player
+            for (Player player : gamePlayers.values()) {
+                if (!player.isAlive()) continue;
+
+                InputState input = toInputState(bufferedInputs.get(player.getId()));
+                player.update(TICK_DELTA, input, maze);
+
+                // Handle firing
+                float cooldown = fireCooldowns.getOrDefault(player.getId(), 0f);
+                cooldown = Math.max(0, cooldown - TICK_DELTA);
+                if (input.fire && cooldown <= 0 && player.isAlive()) {
+                    bullets.add(new Bullet(
+                            player.getX(), player.getZ(),
+                            player.getAngle(), player.getId()));
+                    cooldown = Bullet.FIRE_COOLDOWN;
+                }
+                fireCooldowns.put(player.getId(), cooldown);
+            }
+
+            // Update bullets and check collisions
+            updateBullets();
+
+            // Detect score changes and send hit/eliminated messages
+            detectHits();
+
+            // Check for game over
+            checkGameOver();
+
+            // Build and broadcast snapshot
+            broadcastSnapshot();
+        } catch (Exception e) {
+            Gdx.app.error("HostServer", "Error in tick", e);
+        }
+    }
+
+    private InputState toInputState(Protocol.PlayerInput input) {
+        InputState state = new InputState();
+        if (input != null) {
+            state.moveForward = input.forward;
+            state.turnAmount = input.turnAmount;
+            state.fire = input.fire;
+        }
+        return state;
+    }
+
+    private void updateBullets() {
+        Iterator<Bullet> bulletIter = bullets.iterator();
+        while (bulletIter.hasNext()) {
+            Bullet bullet = bulletIter.next();
+            if (!bullet.update(TICK_DELTA, maze)) {
+                bulletIter.remove();
+                continue;
+            }
+
+            // Check bullet-player collision
+            for (Player player : gamePlayers.values()) {
+                if (!player.isAlive()) continue;
+                if (player.getId() == bullet.getOwnerPlayerId()) continue;
+
+                float dx = bullet.getX() - player.getX();
+                float dz = bullet.getZ() - player.getZ();
+                float dist = dx * dx + dz * dz;
+                float hitRadius = Bullet.RADIUS + Player.COLLISION_RADIUS * 0.5f;
+
+                if (dist < hitRadius * hitRadius) {
+                    player.hit();
+                    bullet.kill();
+                    break;
+                }
+            }
+
+            if (!bullet.isAlive()) {
+                bulletIter.remove();
+            }
+        }
+    }
+
+    private void detectHits() {
+        for (Player player : gamePlayers.values()) {
+            int prevScore = previousScores.getOrDefault(player.getId(), player.getScore());
+            int currentScore = player.getScore();
+
+            if (currentScore < prevScore) {
+                // Player was hit — find the shooter (bullet owner from most recent hit)
+                // Since we process bullets above, the shooter is the owner of the bullet that hit
+                Protocol.PlayerHit hitMsg = new Protocol.PlayerHit();
+                hitMsg.hitPlayerId = player.getId();
+                hitMsg.shooterPlayerId = -1; // We don't track shooter per-hit; use -1
+                hitMsg.newScore = currentScore;
+
+                server.sendToAllTCP(hitMsg);
+                Gdx.app.postRunnable(() -> networkManager.firePlayerHit(hitMsg));
+
+                if (!player.isAlive()) {
+                    Protocol.PlayerEliminated elimMsg = new Protocol.PlayerEliminated();
+                    elimMsg.playerId = player.getId();
+                    server.sendToAllTCP(elimMsg);
+                    Gdx.app.postRunnable(() -> networkManager.firePlayerEliminated(elimMsg));
+                }
+            }
+
+            previousScores.put(player.getId(), currentScore);
+        }
+    }
+
+    private void checkGameOver() {
+        List<Player> alive = new ArrayList<>();
+        for (Player player : gamePlayers.values()) {
+            if (player.isAlive()) {
+                alive.add(player);
+            }
+        }
+
+        // Game over when only one (or zero) players remain alive, and we started with more than 1
+        if (alive.size() <= 1 && gamePlayers.size() > 1) {
+            gameplayActive = false;
+
+            Protocol.GameOver msg = new Protocol.GameOver();
+            msg.winnerPlayerId = alive.isEmpty() ? -1 : alive.get(0).getId();
+            server.sendToAllTCP(msg);
+            Gdx.app.postRunnable(() -> networkManager.fireGameOver(msg));
+
+            stopGameplayLoop();
+        }
+    }
+
+    private void broadcastSnapshot() {
+        Protocol.GameSnapshot snapshot = new Protocol.GameSnapshot();
+        snapshot.tick = tickCount;
+
+        // Build player snapshots
+        List<Protocol.PlayerSnapshot> playerSnapshots = new ArrayList<>();
+        for (Player player : gamePlayers.values()) {
+            Protocol.PlayerSnapshot ps = new Protocol.PlayerSnapshot();
+            ps.id = player.getId();
+            ps.x = player.getX();
+            ps.z = player.getZ();
+            ps.angle = player.getAngle();
+            ps.score = player.getScore();
+            ps.alive = player.isAlive();
+            playerSnapshots.add(ps);
+        }
+        snapshot.players = playerSnapshots.toArray(new Protocol.PlayerSnapshot[0]);
+
+        // Build bullet snapshots
+        List<Protocol.BulletSnapshot> bulletSnapshots = new ArrayList<>();
+        for (Bullet bullet : bullets) {
+            if (!bullet.isAlive()) continue;
+            Protocol.BulletSnapshot bs = new Protocol.BulletSnapshot();
+            bs.x = bullet.getX();
+            bs.z = bullet.getZ();
+            bs.dirX = bullet.getDirX();
+            bs.dirZ = bullet.getDirZ();
+            bs.ownerId = bullet.getOwnerPlayerId();
+            bulletSnapshots.add(bs);
+        }
+        snapshot.bullets = bulletSnapshots.toArray(new Protocol.BulletSnapshot[0]);
+
+        server.sendToAllUDP(snapshot);
+        Gdx.app.postRunnable(() -> networkManager.fireGameSnapshot(snapshot));
+    }
+
+    // --- Lobby message handling ---
+
     private void handleMessage(Connection connection, Object object) {
         if (object instanceof Protocol.JoinRequest req) {
             handleJoinRequest(connection, req);
         } else if (object instanceof Protocol.ReadyToggle) {
             handleReadyToggle(connection);
+        } else if (object instanceof Protocol.PlayerInput input) {
+            handlePlayerInput(connection, input);
+        }
+    }
+
+    private void handlePlayerInput(Connection connection, Protocol.PlayerInput input) {
+        Integer playerId = connectionToPlayerId.get(connection.getID());
+        if (playerId != null) {
+            bufferedInputs.put(playerId, input);
         }
     }
 

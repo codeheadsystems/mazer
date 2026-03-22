@@ -55,6 +55,8 @@ public class Bullet {
 
     public float getX() { return x; }
     public float getZ() { return z; }
+    public float getDirX() { return dirX; }
+    public float getDirZ() { return dirZ; }
     public int getOwnerPlayerId() { return ownerPlayerId; }
     public boolean isAlive() { return alive; }
 

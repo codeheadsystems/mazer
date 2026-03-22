@@ -181,10 +181,7 @@ public class LobbyScreen extends ScreenAdapter {
     }
 
     private void onGameStart(Protocol.StartGame msg) {
-        // Transition to the networked play screen
-        // For now, transition to PlayScreen in solo-like mode with the shared seed
-        // Full networked gameplay will be wired in Phase 7
-        game.setScreen(new PlayScreen(msg.mazeWidth, msg.mazeHeight, msg.mazeSeed));
+        game.setScreen(new CountdownScreen(game, networkManager, msg));
     }
 
     private void onDisconnected() {

@@ -131,6 +131,14 @@ public class Player {
         this.angle = angle;
     }
 
+    public void setScore(int score) {
+        this.score = score;
+    }
+
+    public void setAlive(boolean alive) {
+        this.alive = alive;
+    }
+
     public void hit() {
         score--;
         if (score <= 0) {

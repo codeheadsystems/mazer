@@ -1,5 +1,6 @@
 package com.codeheadsystems.mazer.net;
 
+import com.codeheadsystems.mazer.input.InputState;
 import com.codeheadsystems.mazer.net.Protocol.LobbyUpdate;
 import com.codeheadsystems.mazer.net.Protocol.PlayerInfo;
 
@@ -21,6 +22,10 @@ public class NetworkManager {
     private Consumer<Protocol.StartGame> onGameStart;
     private Consumer<Protocol.JoinResponse> onJoinResponse;
     private Runnable onDisconnected;
+    private Consumer<Protocol.GameSnapshot> onGameSnapshot;
+    private Consumer<Protocol.PlayerHit> onPlayerHit;
+    private Consumer<Protocol.PlayerEliminated> onPlayerEliminated;
+    private Consumer<Protocol.GameOver> onGameOver;
 
     public boolean isHost() {
         return isHost;
@@ -48,6 +53,22 @@ public class NetworkManager {
 
     public void setOnDisconnected(Runnable callback) {
         this.onDisconnected = callback;
+    }
+
+    public void setOnGameSnapshot(Consumer<Protocol.GameSnapshot> callback) {
+        this.onGameSnapshot = callback;
+    }
+
+    public void setOnPlayerHit(Consumer<Protocol.PlayerHit> callback) {
+        this.onPlayerHit = callback;
+    }
+
+    public void setOnPlayerEliminated(Consumer<Protocol.PlayerEliminated> callback) {
+        this.onPlayerEliminated = callback;
+    }
+
+    public void setOnGameOver(Consumer<Protocol.GameOver> callback) {
+        this.onGameOver = callback;
     }
 
     /**
@@ -122,6 +143,46 @@ public class NetworkManager {
     void fireDisconnected() {
         if (onDisconnected != null) {
             onDisconnected.run();
+        }
+    }
+
+    void fireGameSnapshot(Protocol.GameSnapshot msg) {
+        if (onGameSnapshot != null) {
+            onGameSnapshot.accept(msg);
+        }
+    }
+
+    void firePlayerHit(Protocol.PlayerHit msg) {
+        if (onPlayerHit != null) {
+            onPlayerHit.accept(msg);
+        }
+    }
+
+    void firePlayerEliminated(Protocol.PlayerEliminated msg) {
+        if (onPlayerEliminated != null) {
+            onPlayerEliminated.accept(msg);
+        }
+    }
+
+    void fireGameOver(Protocol.GameOver msg) {
+        if (onGameOver != null) {
+            onGameOver.accept(msg);
+        }
+    }
+
+    /**
+     * Sends player input to the server. In host mode, forwards directly
+     * to the HostServer; in client mode, sends via the ClientConnection.
+     */
+    public void sendPlayerInput(InputState input) {
+        if (isHost && hostServer != null) {
+            Protocol.PlayerInput msg = new Protocol.PlayerInput();
+            msg.forward = input.moveForward;
+            msg.turnAmount = input.turnAmount;
+            msg.fire = input.fire;
+            hostServer.handleLocalPlayerInput(msg);
+        } else if (clientConnection != null) {
+            clientConnection.sendPlayerInput(input);
         }
     }
 

@@ -1,6 +1,7 @@
 package com.codeheadsystems.mazer.net;
 
 import com.badlogic.gdx.Gdx;
+import com.codeheadsystems.mazer.input.InputState;
 import com.esotericsoftware.kryonet.Client;
 import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
@@ -13,9 +14,11 @@ import java.io.IOException;
 public class ClientConnection {
 
     private static final int CONNECT_TIMEOUT_MS = 5000;
+    private static final long MIN_INPUT_INTERVAL_NS = 1_000_000_000L / 30; // 30Hz throttle
 
     private final NetworkManager networkManager;
     private Client client;
+    private long lastInputSendTimeNs;
 
     public ClientConnection(NetworkManager networkManager) {
         this.networkManager = networkManager;
@@ -78,6 +81,23 @@ public class ClientConnection {
         }
     }
 
+    /**
+     * Sends player input via UDP, throttled to 30Hz max.
+     */
+    public void sendPlayerInput(InputState input) {
+        long now = System.nanoTime();
+        if (now - lastInputSendTimeNs < MIN_INPUT_INTERVAL_NS) {
+            return;
+        }
+        lastInputSendTimeNs = now;
+
+        Protocol.PlayerInput msg = new Protocol.PlayerInput();
+        msg.forward = input.moveForward;
+        msg.turnAmount = input.turnAmount;
+        msg.fire = input.fire;
+        sendUDP(msg);
+    }
+
     private void handleMessage(Object object) {
         if (object instanceof Protocol.JoinResponse msg) {
             Gdx.app.postRunnable(() -> {
@@ -90,6 +110,14 @@ public class ClientConnection {
             Gdx.app.postRunnable(() -> networkManager.fireLobbyUpdate(msg));
         } else if (object instanceof Protocol.StartGame msg) {
             Gdx.app.postRunnable(() -> networkManager.fireGameStart(msg));
+        } else if (object instanceof Protocol.GameSnapshot msg) {
+            Gdx.app.postRunnable(() -> networkManager.fireGameSnapshot(msg));
+        } else if (object instanceof Protocol.PlayerHit msg) {
+            Gdx.app.postRunnable(() -> networkManager.firePlayerHit(msg));
+        } else if (object instanceof Protocol.PlayerEliminated msg) {
+            Gdx.app.postRunnable(() -> networkManager.firePlayerEliminated(msg));
+        } else if (object instanceof Protocol.GameOver msg) {
+            Gdx.app.postRunnable(() -> networkManager.fireGameOver(msg));
         }
     }
 }
