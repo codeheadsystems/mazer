@@ -79,19 +79,25 @@ public class LobbyScreen extends ScreenAdapter {
             String connectString = networkManager.getConnectString();
             if (connectString != null) {
                 Table qrTable = new Table();
-                Label qrLabel = new Label("Scan to join:", skin);
+
+                // Extract just the IP from the connect string
+                String ip = connectString.replace("mazer://", "").split(":")[0];
+
+                Label ipHeaderLabel = new Label("Join IP:", skin);
+                qrTable.add(ipHeaderLabel).padBottom(5).row();
+
+                Label ipLabel = new Label(ip, skin, "title");
+                qrTable.add(ipLabel).padBottom(15).row();
+
+                Label qrLabel = new Label("Or scan QR code:", skin);
                 qrTable.add(qrLabel).padBottom(5).row();
 
                 qrTexture = QrCodeUtil.generateQrTexture(connectString, 200);
                 if (qrTexture != null) {
                     Image qrImage = new Image(new TextureRegionDrawable(
                             new TextureRegion(qrTexture)));
-                    qrTable.add(qrImage).size(200).padBottom(5).row();
+                    qrTable.add(qrImage).size(150).padBottom(5).row();
                 }
-
-                Label connectLabel = new Label(connectString, skin);
-                connectLabel.setFontScale(0.8f);
-                qrTable.add(connectLabel).row();
 
                 contentTable.add(qrTable).top();
             }
