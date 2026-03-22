@@ -1,11 +1,59 @@
 # Mazer
 
-A game where you are in a maze and try to shot other people you find
-in the maze.
+A retro-styled first-person maze shooter where you hunt down your friends in a neon-green wireframe labyrinth. Navigate tight corridors, check your rear-view mirror, and fire before they fire first. Last player standing wins.
 
-Written with LibGDX, this game is intended for use on android devices and
-desktops. The graphics are 3D first-person view, using a simple view to render the maze in front of the player. Geometric lines indicate the walls, floor and celine of the maze for the user. The user does have a map on the upper right and side that shows the maze but not other players. There is also a rear-view mirror for the user so they can see behind them. Players themselves are simple geometric shapes, like cubes, spheres or eyeballs. They can choose the shape when they begin if no other user picked the shape.
+## Gameplay
 
-Users move forward by holding down the mouse or touching the screen if its a phone. By moving their pointer or finger to the left side of the screen they turn left, or right side they turn right. They can shoot in front of them by using the space bar or selecting a button on the screen. The bullet moves at a specific rate forward and stops either at a wall or another player. If a player gets hit they lose a point. All players start with 5 points, and lose when they get to zero. Last player alive wins. Note that when firing bullets, a bullet can only be fired once per second. Bullets move spaces in the maze every one second. 
+Drop into a procedurally generated maze rendered in glowing green wireframe — walls, floor, and ceiling all drawn with geometric lines on a black void. You see the world from a first-person perspective, with a minimap in the corner showing the maze layout (but never other players) and a rear-view mirror so nobody sneaks up behind you.
 
-When playing the game, one player acts as a host and the other players join them. The host player can show a QR code that the other players can scan to join. A player could also send a connect string via other means from the host game to get them to connect. 
+Players appear as wireframe shapes — cubes, spheres, or eyeballs — each in a distinct color. Pick your shape before the match starts. Up to 8 players can battle it out.
+
+Every player starts with 5 hit points. Get shot, lose a point. Hit zero, you're out. The last player alive wins. Bullets travel at the same speed you walk, so dodging around corners is a real strategy. You can only fire once per second, so make your shots count.
+
+## Controls
+
+**Desktop:**
+- Hold mouse button to move forward
+- Move mouse left/right to steer
+- Spacebar to fire
+
+**Mobile:**
+- Touch and hold to move forward
+- Touch position controls steering (left side = turn left, right side = turn right)
+- Tap the FIRE button in the lower-right corner
+
+## Multiplayer
+
+One player hosts, the others join. The host's lobby screen displays an IP address and QR code — scan it or type the IP to connect. Once everyone is in the lobby and ready, the host starts the match. Players spawn at random locations with a 5-second countdown, then it's on.
+
+Currently supports LAN play. Internet play is planned for the future.
+
+## Solo Mode
+
+Don't have friends nearby? Solo mode drops you into a maze with stationary targets to hunt down. Great for learning the controls and getting a feel for the corridors.
+
+## Tech
+
+- Built with [LibGDX](https://libgdx.com/) in Java 17+
+- Runs on Desktop (LWJGL3) and Android
+- Networking via [KryoNet](https://github.com/crykn/kryonet) with host-authoritative simulation at 20Hz
+- Procedural maze generation using recursive backtracker algorithm
+- QR code generation via [ZXing](https://github.com/zxing/zxing)
+
+## Building
+
+```bash
+# Run on desktop
+gradle :desktop:run
+
+# Build Android APK
+gradle :android:assembleDebug
+```
+
+## Project Structure
+
+```
+core/    - Shared game code (rendering, world, networking, input)
+desktop/ - Desktop launcher (LWJGL3)
+android/ - Android launcher
+```

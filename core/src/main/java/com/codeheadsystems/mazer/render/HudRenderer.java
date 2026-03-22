@@ -3,6 +3,7 @@ package com.codeheadsystems.mazer.render;
 import com.badlogic.gdx.Application;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -13,11 +14,12 @@ import com.codeheadsystems.mazer.world.Player;
 
 /**
  * Composes all HUD elements: minimap, rear-view mirror, score display,
- * and on-screen fire button (mobile only).
+ * hit flash overlay, and on-screen fire button (mobile only).
  */
 public class HudRenderer implements Disposable {
 
     private static final int SCORE_PADDING = 20;
+    private static final float HIT_FLASH_DURATION = 0.3f;
     private static final Color FIRE_BUTTON_COLOR = new Color(0.8f, 0.1f, 0.1f, 0.6f);
     private static final Color FIRE_BUTTON_BORDER_COLOR = new Color(1f, 0.2f, 0.2f, 0.8f);
 
@@ -27,6 +29,9 @@ public class HudRenderer implements Disposable {
     private final ShapeRenderer shapeRenderer;
     private final BitmapFont font;
     private final boolean isMobile;
+
+    private float hitFlashTimer = 0f;
+    private int lastKnownScore = -1;
 
     public HudRenderer(MazeGrid maze) {
         this.minimapRenderer = new MinimapRenderer(maze);
@@ -41,11 +46,24 @@ public class HudRenderer implements Disposable {
     }
 
     /**
+     * Triggers the hit flash effect.
+     */
+    public void triggerHitFlash() {
+        hitFlashTimer = HIT_FLASH_DURATION;
+    }
+
+    /**
      * Renders all HUD elements.
      */
     public void render(MazeRenderer mazeRenderer, Player localPlayer) {
         int screenWidth = Gdx.graphics.getWidth();
         int screenHeight = Gdx.graphics.getHeight();
+
+        // Detect score decrease to auto-trigger hit flash
+        if (lastKnownScore >= 0 && localPlayer.getScore() < lastKnownScore) {
+            triggerHitFlash();
+        }
+        lastKnownScore = localPlayer.getScore();
 
         // Rear-view mirror (top center)
         rearViewRenderer.render(mazeRenderer,
@@ -67,6 +85,23 @@ public class HudRenderer implements Disposable {
         if (isMobile) {
             renderFireButton(screenWidth, screenHeight);
         }
+
+        // Hit flash overlay
+        if (hitFlashTimer > 0) {
+            hitFlashTimer -= Gdx.graphics.getDeltaTime();
+            float alpha = Math.max(0, hitFlashTimer / HIT_FLASH_DURATION) * 0.4f;
+            renderHitFlash(screenWidth, screenHeight, alpha);
+        }
+    }
+
+    private void renderHitFlash(int screenWidth, int screenHeight, float alpha) {
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(1f, 0f, 0f, alpha);
+        shapeRenderer.rect(0, 0, screenWidth, screenHeight);
+        shapeRenderer.end();
     }
 
     private void renderFireButton(int screenWidth, int screenHeight) {
@@ -76,9 +111,8 @@ public class HudRenderer implements Disposable {
         float w = bounds[2];
         float h = bounds[3];
 
-        Gdx.gl.glEnable(com.badlogic.gdx.graphics.GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(com.badlogic.gdx.graphics.GL20.GL_SRC_ALPHA,
-                com.badlogic.gdx.graphics.GL20.GL_ONE_MINUS_SRC_ALPHA);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
         // Filled background
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);

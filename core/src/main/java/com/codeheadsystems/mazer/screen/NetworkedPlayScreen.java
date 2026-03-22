@@ -92,6 +92,7 @@ public class NetworkedPlayScreen extends ScreenAdapter {
         networkManager.setOnPlayerHit(this::onPlayerHit);
         networkManager.setOnPlayerEliminated(this::onPlayerEliminated);
         networkManager.setOnGameOver(this::onGameOver);
+        networkManager.setOnDisconnected(this::onDisconnected);
     }
 
     @Override
@@ -124,6 +125,7 @@ public class NetworkedPlayScreen extends ScreenAdapter {
         }
 
         // Update camera to follow local player
+        mazeRenderer.setMoving(inputState.moveForward);
         mazeRenderer.updateCamera(localPlayer.getX(), localPlayer.getZ(),
                 localPlayer.getAngle());
 
@@ -212,6 +214,12 @@ public class NetworkedPlayScreen extends ScreenAdapter {
 
     private void onGameOver(Protocol.GameOver msg) {
         game.setScreen(new GameOverScreen(game, networkManager, msg.winnerPlayerId));
+    }
+
+    private void onDisconnected() {
+        // Return to menu on disconnect
+        networkManager.shutdown();
+        game.setScreen(new MenuScreen(game));
     }
 
     private Player findPlayer(int id) {

@@ -88,6 +88,7 @@ public class PlayScreen extends ScreenAdapter {
         gameWorld.update(delta, localPlayer, inputState);
 
         // Update camera to follow player
+        mazeRenderer.setMoving(inputState.moveForward);
         mazeRenderer.updateCamera(localPlayer.getX(), localPlayer.getZ(), localPlayer.getAngle());
 
         // Render 3D maze

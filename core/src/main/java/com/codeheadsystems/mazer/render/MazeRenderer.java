@@ -30,6 +30,8 @@ public class MazeRenderer implements Disposable {
     private static final Color WALL_COLOR = new Color(0.0f, 1.0f, 0.0f, 1.0f);       // bright green
     private static final Color FLOOR_COLOR = new Color(0.0f, 0.3f, 0.0f, 1.0f);      // dark green
     private static final Color CEILING_COLOR = new Color(0.0f, 0.2f, 0.0f, 1.0f);    // darker green
+    private static final float BOB_AMPLITUDE = 0.08f;  // vertical bob amount
+    private static final float BOB_FREQUENCY = 8.0f;   // bob cycles per second
     private static final Color WALL_FILL_COLOR = new Color(0.08f, 0.18f, 0.08f, 1.0f);    // dark greenish wall fill
     private static final Color FLOOR_FILL_COLOR = new Color(0.0f, 0.12f, 0.0f, 1.0f);   // dark green floor fill
     private static final Color CEILING_FILL_COLOR = new Color(0.0f, 0.08f, 0.0f, 1.0f); // dark green ceiling fill
@@ -38,6 +40,8 @@ public class MazeRenderer implements Disposable {
     private final Model mazeModel;
     private final ModelInstance mazeInstance;
     private final PerspectiveCamera camera;
+    private float bobTimer = 0f;
+    private boolean isMoving = false;
 
     public MazeRenderer(MazeGrid maze) {
         this.modelBatch = new ModelBatch();
@@ -61,8 +65,26 @@ public class MazeRenderer implements Disposable {
      * @param z     world Z position
      * @param angle facing angle in radians (0 = +X axis)
      */
+    /**
+     * Sets whether the player is currently moving (enables camera bob).
+     */
+    public void setMoving(boolean moving) {
+        this.isMoving = moving;
+    }
+
     public void updateCamera(float x, float z, float angle) {
-        camera.position.set(x, EYE_HEIGHT, z);
+        float eyeY = EYE_HEIGHT;
+
+        // Camera bob when moving
+        if (isMoving) {
+            bobTimer += com.badlogic.gdx.Gdx.graphics.getDeltaTime() * BOB_FREQUENCY;
+            eyeY += MathUtils.sin(bobTimer * MathUtils.PI2) * BOB_AMPLITUDE;
+        } else {
+            // Smoothly return to neutral
+            bobTimer = 0f;
+        }
+
+        camera.position.set(x, eyeY, z);
         camera.direction.set(MathUtils.cos(angle), 0, MathUtils.sin(angle));
         camera.up.set(0, 1, 0);
         camera.update();
