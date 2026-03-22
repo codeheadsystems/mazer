@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.math.Vector2;
+import com.codeheadsystems.mazer.MazerGame;
 import com.codeheadsystems.mazer.input.InputHelper;
 import com.codeheadsystems.mazer.input.InputState;
 import com.codeheadsystems.mazer.maze.MazeGenerator;
@@ -24,6 +25,7 @@ public class PlayScreen extends ScreenAdapter {
     private static final float CELL_SIZE = 4.0f;
     private static final int DUMMY_TARGET_COUNT = 3;
 
+    private final MazerGame game;
     private final int mazeWidth;
     private final int mazeHeight;
     private final long mazeSeed;
@@ -40,8 +42,9 @@ public class PlayScreen extends ScreenAdapter {
     private InputState inputState;
     private Runnable inputUpdater;
 
-    public PlayScreen(int mazeWidth, int mazeHeight, long mazeSeed,
+    public PlayScreen(MazerGame game, int mazeWidth, int mazeHeight, long mazeSeed,
                       boolean soloMode, PlayerModelFactory.Shape playerShape) {
+        this.game = game;
         this.mazeWidth = mazeWidth;
         this.mazeHeight = mazeHeight;
         this.mazeSeed = mazeSeed;
@@ -50,7 +53,7 @@ public class PlayScreen extends ScreenAdapter {
     }
 
     public PlayScreen(int mazeWidth, int mazeHeight, long mazeSeed) {
-        this(mazeWidth, mazeHeight, mazeSeed, true, PlayerModelFactory.Shape.CUBE);
+        this(null, mazeWidth, mazeHeight, mazeSeed, true, PlayerModelFactory.Shape.CUBE);
     }
 
     @Override
@@ -105,6 +108,11 @@ public class PlayScreen extends ScreenAdapter {
 
         // Render HUD (minimap, rear-view mirror, score)
         hudRenderer.render(mazeRenderer, localPlayer);
+
+        // Check for leave request
+        if (hudRenderer.isLeaveRequested() && game != null) {
+            game.setScreen(new MenuScreen(game));
+        }
     }
 
     @Override

@@ -66,23 +66,13 @@ public class MazeRenderer implements Disposable {
      * @param angle facing angle in radians (0 = +X axis)
      */
     /**
-     * Sets whether the player is currently moving (enables camera bob).
+     * No-op, kept for API compatibility.
      */
     public void setMoving(boolean moving) {
-        this.isMoving = moving;
     }
 
     public void updateCamera(float x, float z, float angle) {
         float eyeY = EYE_HEIGHT;
-
-        // Camera bob when moving
-        if (isMoving) {
-            bobTimer += com.badlogic.gdx.Gdx.graphics.getDeltaTime() * BOB_FREQUENCY;
-            eyeY += MathUtils.sin(bobTimer * MathUtils.PI2) * BOB_AMPLITUDE;
-        } else {
-            // Smoothly return to neutral
-            bobTimer = 0f;
-        }
 
         camera.position.set(x, eyeY, z);
         camera.direction.set(MathUtils.cos(angle), 0, MathUtils.sin(angle));

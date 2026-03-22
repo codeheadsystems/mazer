@@ -138,13 +138,17 @@ public class NetworkedPlayScreen extends ScreenAdapter {
         playerRenderer.render(mazeRenderer.getCamera(),
                 gameWorld.getPlayers(), localPlayer.getId());
 
-        // Render bullets
-        List<Bullet> bulletsToRender = networkManager.isHost()
-                ? gameWorld.getBullets() : clientBullets;
-        bulletRenderer.render(mazeRenderer.getCamera(), bulletsToRender);
+        // Render bullets (always from snapshot-synced list)
+        bulletRenderer.render(mazeRenderer.getCamera(), clientBullets);
 
         // Render HUD
         hudRenderer.render(mazeRenderer, localPlayer);
+
+        // Check for leave request
+        if (hudRenderer.isLeaveRequested()) {
+            networkManager.shutdown();
+            game.setScreen(new MenuScreen(game));
+        }
     }
 
     private void onGameSnapshot(Protocol.GameSnapshot snapshot) {
@@ -188,9 +192,9 @@ public class NetworkedPlayScreen extends ScreenAdapter {
             }
         }
 
-        // Update client-side bullets from snapshot (clients only)
-        if (!networkManager.isHost()) {
-            clientBullets.clear();
+        // Update bullet list from snapshot (both host and client)
+        clientBullets.clear();
+        if (snapshot.bullets != null) {
             for (Protocol.BulletSnapshot bs : snapshot.bullets) {
                 float angle = MathUtils.atan2(bs.dirZ, bs.dirX);
                 clientBullets.add(new Bullet(bs.x, bs.z, angle, bs.ownerId));

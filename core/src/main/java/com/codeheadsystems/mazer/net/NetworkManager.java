@@ -4,6 +4,8 @@ import com.codeheadsystems.mazer.input.InputState;
 import com.codeheadsystems.mazer.net.Protocol.LobbyUpdate;
 import com.codeheadsystems.mazer.net.Protocol.PlayerInfo;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -16,6 +18,7 @@ public class NetworkManager {
     private ClientConnection clientConnection;
     private boolean isHost;
     private int localPlayerId = -1;
+    private final Map<Integer, String> playerNames = new HashMap<>();
 
     // Callbacks set by screens
     private Consumer<LobbyUpdate> onLobbyUpdate;
@@ -123,9 +126,22 @@ public class NetworkManager {
     // --- Internal callbacks from HostServer/ClientConnection ---
 
     void fireLobbyUpdate(LobbyUpdate update) {
+        // Cache player names for later use (e.g., GameOverScreen)
+        if (update.players != null) {
+            for (PlayerInfo info : update.players) {
+                playerNames.put(info.id, info.name);
+            }
+        }
         if (onLobbyUpdate != null) {
             onLobbyUpdate.accept(update);
         }
+    }
+
+    /**
+     * Returns the player name for the given ID, or "Player N" as fallback.
+     */
+    public String getPlayerName(int playerId) {
+        return playerNames.getOrDefault(playerId, "Player " + playerId);
     }
 
     void fireGameStart(Protocol.StartGame msg) {

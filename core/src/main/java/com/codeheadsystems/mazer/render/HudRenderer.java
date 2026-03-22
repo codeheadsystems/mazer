@@ -2,9 +2,11 @@ package com.codeheadsystems.mazer.render;
 
 import com.badlogic.gdx.Application;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Disposable;
@@ -14,7 +16,7 @@ import com.codeheadsystems.mazer.world.Player;
 
 /**
  * Composes all HUD elements: minimap, rear-view mirror, score display,
- * hit flash overlay, and on-screen fire button (mobile only).
+ * hit flash overlay, leave button, and on-screen fire button (mobile only).
  */
 public class HudRenderer implements Disposable {
 
@@ -22,16 +24,25 @@ public class HudRenderer implements Disposable {
     private static final float HIT_FLASH_DURATION = 0.3f;
     private static final Color FIRE_BUTTON_COLOR = new Color(0.8f, 0.1f, 0.1f, 0.6f);
     private static final Color FIRE_BUTTON_BORDER_COLOR = new Color(1f, 0.2f, 0.2f, 0.8f);
+    private static final Color LEAVE_BUTTON_COLOR = new Color(0.3f, 0.3f, 0.3f, 0.6f);
+    private static final Color LEAVE_BUTTON_BORDER_COLOR = new Color(0.6f, 0.6f, 0.6f, 0.8f);
+
+    private static final float LEAVE_BTN_WIDTH = 80f;
+    private static final float LEAVE_BTN_HEIGHT = 30f;
+    private static final float LEAVE_BTN_PADDING = 10f;
 
     private final MinimapRenderer minimapRenderer;
     private final RearViewRenderer rearViewRenderer;
     private final SpriteBatch spriteBatch;
     private final ShapeRenderer shapeRenderer;
     private final BitmapFont font;
+    private final BitmapFont smallFont;
+    private final GlyphLayout glyphLayout;
     private final boolean isMobile;
 
     private float hitFlashTimer = 0f;
     private int lastKnownScore = -1;
+    private boolean leaveRequested = false;
 
     public HudRenderer(MazeGrid maze) {
         this.minimapRenderer = new MinimapRenderer(maze);
@@ -41,6 +52,9 @@ public class HudRenderer implements Disposable {
         this.font = new BitmapFont();
         font.setColor(Color.GREEN);
         font.getData().setScale(2f);
+        this.smallFont = new BitmapFont();
+        smallFont.setColor(Color.WHITE);
+        this.glyphLayout = new GlyphLayout();
         this.isMobile = Gdx.app.getType() == Application.ApplicationType.Android
                 || Gdx.app.getType() == Application.ApplicationType.iOS;
     }
@@ -53,11 +67,26 @@ public class HudRenderer implements Disposable {
     }
 
     /**
+     * Returns true if the player requested to leave (ESC key or tapped leave button).
+     * Resets after being read.
+     */
+    public boolean isLeaveRequested() {
+        boolean result = leaveRequested;
+        leaveRequested = false;
+        return result;
+    }
+
+    /**
      * Renders all HUD elements.
      */
     public void render(MazeRenderer mazeRenderer, Player localPlayer) {
         int screenWidth = Gdx.graphics.getWidth();
         int screenHeight = Gdx.graphics.getHeight();
+
+        // Check ESC key
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            leaveRequested = true;
+        }
 
         // Detect score decrease to auto-trigger hit flash
         if (lastKnownScore >= 0 && localPlayer.getScore() < lastKnownScore) {
@@ -81,6 +110,9 @@ public class HudRenderer implements Disposable {
                 SCORE_PADDING, screenHeight - SCORE_PADDING);
         spriteBatch.end();
 
+        // Leave button (lower left)
+        renderLeaveButton(screenWidth, screenHeight);
+
         // Fire button (mobile only)
         if (isMobile) {
             renderFireButton(screenWidth, screenHeight);
@@ -92,6 +124,46 @@ public class HudRenderer implements Disposable {
             float alpha = Math.max(0, hitFlashTimer / HIT_FLASH_DURATION) * 0.4f;
             renderHitFlash(screenWidth, screenHeight, alpha);
         }
+    }
+
+    private void renderLeaveButton(int screenWidth, int screenHeight) {
+        float x = LEAVE_BTN_PADDING;
+        float y = LEAVE_BTN_PADDING;
+
+        // Check for touch/click on the leave button
+        if (Gdx.input.justTouched()) {
+            int touchX = Gdx.input.getX();
+            int touchY = Gdx.input.getY();
+            // Convert screen coords (y-down) to GL coords (y-up)
+            float glY = screenHeight - touchY;
+            if (touchX >= x && touchX <= x + LEAVE_BTN_WIDTH
+                    && glY >= y && glY <= y + LEAVE_BTN_HEIGHT) {
+                leaveRequested = true;
+            }
+        }
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        // Background
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(LEAVE_BUTTON_COLOR);
+        shapeRenderer.rect(x, y, LEAVE_BTN_WIDTH, LEAVE_BTN_HEIGHT);
+        shapeRenderer.end();
+
+        // Border
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(LEAVE_BUTTON_BORDER_COLOR);
+        shapeRenderer.rect(x, y, LEAVE_BTN_WIDTH, LEAVE_BTN_HEIGHT);
+        shapeRenderer.end();
+
+        // Label
+        spriteBatch.begin();
+        glyphLayout.setText(smallFont, "LEAVE");
+        float textX = x + (LEAVE_BTN_WIDTH - glyphLayout.width) / 2f;
+        float textY = y + (LEAVE_BTN_HEIGHT + glyphLayout.height) / 2f;
+        smallFont.draw(spriteBatch, "LEAVE", textX, textY);
+        spriteBatch.end();
     }
 
     private void renderHitFlash(int screenWidth, int screenHeight, float alpha) {
@@ -141,5 +213,6 @@ public class HudRenderer implements Disposable {
         spriteBatch.dispose();
         shapeRenderer.dispose();
         font.dispose();
+        smallFont.dispose();
     }
 }

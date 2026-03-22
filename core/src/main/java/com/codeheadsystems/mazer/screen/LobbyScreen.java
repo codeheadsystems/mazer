@@ -16,8 +16,8 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
-import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.codeheadsystems.mazer.MazerGame;
+import com.codeheadsystems.mazer.render.ViewportHelper;
 import com.codeheadsystems.mazer.net.NetworkManager;
 import com.codeheadsystems.mazer.net.Protocol;
 import com.codeheadsystems.mazer.net.QrCodeUtil;
@@ -50,7 +50,7 @@ public class LobbyScreen extends ScreenAdapter {
 
     @Override
     public void show() {
-        stage = new Stage(new ScreenViewport());
+        stage = new Stage(ViewportHelper.createScaledViewport());
         skin = createSkin();
         Gdx.input.setInputProcessor(stage);
 

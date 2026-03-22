@@ -11,7 +11,6 @@ import com.badlogic.gdx.InputAdapter;
 public class DesktopInputProcessor extends InputAdapter {
 
     private final InputState inputState;
-    private boolean firePressed;
 
     public DesktopInputProcessor(InputState inputState) {
         this.inputState = inputState;
@@ -44,9 +43,9 @@ public class DesktopInputProcessor extends InputAdapter {
             inputState.turnAmount = 0f;
         }
 
-        // Fire: spacebar (edge-triggered)
-        boolean spaceDown = Gdx.input.isKeyPressed(Input.Keys.SPACE);
-        inputState.fire = spaceDown && !firePressed;
-        firePressed = spaceDown;
+        // Fire: spacebar (level-triggered, held = fire).
+        // Server-side cooldown (1sec) prevents rapid fire.
+        // Level-triggered ensures the fire signal isn't missed by throttled UDP sends.
+        inputState.fire = Gdx.input.isKeyPressed(Input.Keys.SPACE);
     }
 }

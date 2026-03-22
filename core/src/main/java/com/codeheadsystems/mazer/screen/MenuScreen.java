@@ -17,8 +17,8 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.codeheadsystems.mazer.MazerGame;
+import com.codeheadsystems.mazer.render.ViewportHelper;
 import com.codeheadsystems.mazer.net.NetworkManager;
 import com.codeheadsystems.mazer.render.PlayerModelFactory;
 
@@ -37,7 +37,7 @@ public class MenuScreen extends ScreenAdapter {
 
     @Override
     public void show() {
-        stage = new Stage(new ScreenViewport());
+        stage = new Stage(ViewportHelper.createScaledViewport());
         skin = createMinimalSkin();
         Gdx.input.setInputProcessor(stage);
 
@@ -74,7 +74,7 @@ public class MenuScreen extends ScreenAdapter {
                 int[] size = parseMazeSize(sizeSelect.getSelected());
                 PlayerModelFactory.Shape shape = PlayerModelFactory.Shape.fromIndex(
                         shapeSelect.getSelectedIndex());
-                game.setScreen(new PlayScreen(size[0], size[1],
+                game.setScreen(new PlayScreen(game, size[0], size[1],
                         System.currentTimeMillis(), true, shape));
             }
         });
@@ -123,6 +123,38 @@ public class MenuScreen extends ScreenAdapter {
             }
         });
         joinTable.add(joinButton).width(80).height(50);
+
+        // QR scan button (only on platforms that support it)
+        if (game.getPlatformServices().isQrScanAvailable()) {
+            TextButton scanButton = new TextButton("SCAN QR", skin);
+            scanButton.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    game.getPlatformServices().scanQrCode(scannedText -> {
+                        if (scannedText != null) {
+                            // Parse mazer://IP:PORT format
+                            String ip = scannedText
+                                    .replace("mazer://", "")
+                                    .split(":")[0];
+                            ipField.setText(ip);
+
+                            // Auto-connect
+                            int[] size = parseMazeSize(sizeSelect.getSelected());
+                            NetworkManager net = new NetworkManager();
+                            net.setOnJoinResponse(resp -> {
+                                if (resp.accepted) {
+                                    game.setScreen(new LobbyScreen(game, net, size[0], size[1]));
+                                }
+                            });
+                            net.connectToHost(ip,
+                                    nameField.getText(), shapeSelect.getSelectedIndex());
+                        }
+                    });
+                }
+            });
+            joinTable.add(scanButton).width(100).height(50).padLeft(10);
+        }
+
         root.add(joinTable).padBottom(15).row();
     }
 

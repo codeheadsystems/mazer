@@ -16,8 +16,8 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
-import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.codeheadsystems.mazer.MazerGame;
+import com.codeheadsystems.mazer.render.ViewportHelper;
 import com.codeheadsystems.mazer.net.NetworkManager;
 
 /**
@@ -41,7 +41,7 @@ public class GameOverScreen extends ScreenAdapter {
 
     @Override
     public void show() {
-        stage = new Stage(new ScreenViewport());
+        stage = new Stage(ViewportHelper.createScaledViewport());
         skin = createSkin();
         Gdx.input.setInputProcessor(stage);
 
@@ -60,7 +60,7 @@ public class GameOverScreen extends ScreenAdapter {
         } else if (winnerPlayerId == networkManager.getLocalPlayerId()) {
             winnerText = "YOU WIN!";
         } else {
-            winnerText = "Player " + winnerPlayerId + " wins!";
+            winnerText = networkManager.getPlayerName(winnerPlayerId) + " wins!";
         }
         Label winnerLabel = new Label(winnerText, skin);
         root.add(winnerLabel).padBottom(40).row();
